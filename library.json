@@ -1,0 +1,15 @@
+{
+  "name": "recsrmesh",
+  "version": "1.0.0",
+  "description": "C++20 CSRMesh BLE mesh protocol library",
+  "keywords": "csrmesh, ble, mesh",
+  "frameworks": "espidf",
+  "platforms": "espressif32",
+  "build": {
+    "flags": [
+      "-std=gnu++20",
+      "-Iinclude"
+    ],
+    "srcFilter": ["+<src/>"]
+  }
+}
