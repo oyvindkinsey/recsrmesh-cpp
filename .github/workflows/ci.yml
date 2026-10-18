@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Mbed TLS 3.6; Mbed TLS 4 support tracked upstream
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
