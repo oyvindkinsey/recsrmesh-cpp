@@ -20,5 +20,7 @@
 #define uECC_sign recsrmesh_uECC_sign
 #define uECC_sign_deterministic recsrmesh_uECC_sign_deterministic
 #define uECC_verify recsrmesh_uECC_verify
+#define uECC_get_rng recsrmesh_uECC_get_rng
+#define uECC_sign_with_k recsrmesh_uECC_sign_with_k
 
 #include "../external/micro-ecc/uECC.h"
