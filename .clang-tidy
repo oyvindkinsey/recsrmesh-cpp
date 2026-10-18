@@ -1,0 +1,4 @@
+Checks: '-*,bugprone-*,modernize-*,performance-*,-modernize-use-trailing-return-type'
+WarningsAsErrors: ''
+HeaderFilterRegex: '(include|src)/.*'
+FormatStyle: file

@@ -23,8 +23,11 @@ target_include_directories(recsrmesh PUBLIC
     ${MBEDTLS_INCLUDE_DIRS}
 )
 
+target_compile_options(recsrmesh PRIVATE -Wall -Wextra)
+
 target_link_libraries(recsrmesh PUBLIC
     ${MBEDTLS_LIBRARIES}
+    mbedcrypto
     Threads::Threads
 )
 
@@ -40,3 +43,11 @@ install(TARGETS recsrmesh
 )
 
 install(DIRECTORY include/ DESTINATION include)
+
+option(RECSRMESH_BUILD_TESTS "Build known-answer tests" ON)
+if(RECSRMESH_BUILD_TESTS)
+    enable_testing()
+    add_executable(test_crypto tests/test_crypto.cpp)
+    target_link_libraries(test_crypto PRIVATE recsrmesh)
+    add_test(NAME test_crypto COMMAND test_crypto)
+endif()
