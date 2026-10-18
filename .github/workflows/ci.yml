@@ -24,3 +24,8 @@ jobs:
         run: make build BUILD_DIR=build
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Test PSA backend (Mbed TLS 4 path, byte-identical vectors)
+        run: |
+          cmake -S . -B build-psa -DCMAKE_CXX_FLAGS=-DRECSRMESH_CRYPTO_PSA -DCMAKE_C_FLAGS=-DRECSRMESH_CRYPTO_PSA
+          cmake --build build-psa -j
+          ./build-psa/test_crypto

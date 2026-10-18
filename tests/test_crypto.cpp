@@ -3,11 +3,24 @@
 #include "recsrmesh/crypto.h"
 #include "recsrmesh/mcp_crypto.h"
 
+extern "C" {
+#include "uECC.h"
+}
+
 #include <cassert>
 #include <cstdio>
 #include <cstring>
 
 using namespace csrmesh;
+
+static int test_rng(uint8_t *dest, unsigned size) {
+    FILE *f = fopen("/dev/urandom", "rb");
+    if (!f)
+        return 0;
+    size_t n = fread(dest, 1, size, f);
+    fclose(f);
+    return n == size ? 1 : 0;
+}
 
 static void hex(const uint8_t *in, size_t len, char *out) {
     static const char *d = "0123456789abcdef";
@@ -91,6 +104,29 @@ int main() {
         assert(crypto::verify_packet_mac(ByteSpan(out, out_len), key, &payload_len, &valid) ==
                Error::Ok);
         assert(!valid);
+    }
+    // micro-ecc secp192r1 ECDH known answer (Python cryptography):
+    // private keys 1 and 2; shared secret = X coordinate of 2*G
+    {
+        // (micro-ecc rejects private key 1, so use priv=2 with peer=G;
+        // shared point is still 2*G)
+        uint8_t priv1[24] = {0};
+        priv1[23] = 2;
+        uint8_t pub2[48];
+        const char *pub2_hex =
+            "188da80eb03090f67cbf20eb43a18800f4ff0afd82ff101207192b95ffc8da786"
+            "31011ed6b24cdd573f977a11e794811";
+        for (int i = 0; i < 48; i++) {
+            unsigned v;
+            sscanf(pub2_hex + 2 * i, "%2x", &v);
+            pub2[i] = static_cast<uint8_t>(v);
+        }
+        uECC_set_rng(test_rng);
+        uint8_t secret[24];
+        char buf[49];
+        assert(uECC_shared_secret(pub2, priv1, secret, uECC_secp192r1()) == 1);
+        hex(secret, 24, buf);
+        assert(strcmp(buf, "dafebf5828783f2ad35534631588a3f629a70fb16982a888") == 0);
     }
     printf("all crypto known-answer tests passed\n");
     return 0;

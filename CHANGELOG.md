@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-18
+
+### Added
+
+- Crypto backend abstraction: PSA Crypto on Mbed TLS 4, legacy API on
+  Mbed TLS 2/3 (SHA-256, HMAC-SHA-256, AES-128-OFB, RNG).
+- micro-ecc secp192r1 ECDH for MASP (Mbed TLS 4 removed the curve),
+  verified against an independent ECDH known-answer vector.
+
 ## [1.0.0] - 2026-10-18
 
 ### Added

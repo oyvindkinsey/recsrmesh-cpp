@@ -3,16 +3,13 @@
 
 #include <cstring>
 
-#include <mbedtls/aes.h>
-#include <mbedtls/ctr_drbg.h>
-#include <mbedtls/entropy.h>
-#include <mbedtls/sha256.h>
+#include "crypto_backend.h"
 
 namespace csrmesh::mcp_crypto {
 
 Error generate_key(ByteSpan input, uint8_t key_out[KEY_LEN]) {
     uint8_t digest[32];
-    if (mbedtls_sha256(input.data(), input.size(), digest, 0) != 0)
+    if (crypto::backend::sha256(input, {}, digest) != Error::Ok)
         return Error::Crypto;
 
     crypto::reverse_bytes(digest, 32);
@@ -31,21 +28,7 @@ static Error aes_ofb(const uint8_t *key, const uint8_t *seq_arr, uint16_t source
     iv[4] = static_cast<uint8_t>(source & 0xFF);
     iv[5] = static_cast<uint8_t>(source >> 8);
 
-    mbedtls_aes_context aes;
-    mbedtls_aes_init(&aes);
-    if (mbedtls_aes_setkey_enc(&aes, key, 128) != 0) {
-        mbedtls_aes_free(&aes);
-        return Error::Crypto;
-    }
-
-    size_t iv_offset = 0;
-    if (mbedtls_aes_crypt_ofb(&aes, len, &iv_offset, iv, in, out) != 0) {
-        mbedtls_aes_free(&aes);
-        return Error::Crypto;
-    }
-
-    mbedtls_aes_free(&aes);
-    return Error::Ok;
+    return crypto::backend::aes128_ofb(key, iv, in, out, len);
 }
 
 size_t make_packet(const uint8_t *key, uint32_t seq, ByteSpan data, uint8_t *out, size_t out_cap) {
@@ -152,35 +135,13 @@ Error decrypt_packet(const uint8_t *key, ByteSpan data, Decrypted &result) {
 }
 
 Error random_seq(uint32_t &seq_out) {
-    mbedtls_entropy_context entropy;
-    mbedtls_ctr_drbg_context ctr_drbg;
     uint8_t buf[3];
-
-    mbedtls_entropy_init(&entropy);
-    mbedtls_ctr_drbg_init(&ctr_drbg);
-
-    const char *pers = "csrmesh_seq";
-    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                    reinterpret_cast<const uint8_t *>(pers), std::strlen(pers));
-    if (ret != 0)
-        goto err;
-
-    ret = mbedtls_ctr_drbg_random(&ctr_drbg, buf, sizeof(buf));
-    if (ret != 0)
-        goto err;
-
+    if (crypto::backend::random_bytes(buf, sizeof(buf)) != Error::Ok)
+        return Error::Crypto;
     seq_out = (static_cast<uint32_t>(buf[0]) | (static_cast<uint32_t>(buf[1]) << 8) |
                (static_cast<uint32_t>(buf[2]) << 16)) |
               1;
-
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
     return Error::Ok;
-
-err:
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
-    return Error::Crypto;
 }
 
 }  // namespace csrmesh::mcp_crypto

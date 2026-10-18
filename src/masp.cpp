@@ -5,19 +5,24 @@
 #include <cstdlib>
 #include <cstring>
 
-#include <mbedtls/bignum.h>
-#include <mbedtls/ctr_drbg.h>
-#include <mbedtls/ecp.h>
-#include <mbedtls/entropy.h>
+#include "crypto_backend.h"
+
+extern "C" {
+#include "uECC.h"
+}
 
 namespace csrmesh::masp {
 
-// Internal ECDH state using low-level ECP API (mbedtls 3.x compatible)
+// Internal ECDH state: micro-ecc secp192r1 (Mbed TLS 4 removed the curve).
+// Private key 24 bytes, public key 48 bytes (X||Y, big-endian).
 struct EcpCtx {
-    mbedtls_ecp_group grp;
-    mbedtls_mpi d;
-    mbedtls_ecp_point Q;
+    uint8_t priv[ECDH_COORD_LEN];
+    uint8_t pub[2 * ECDH_COORD_LEN];
 };
+
+static int uecc_rng(uint8_t *dest, unsigned size) {
+    return csrmesh::crypto::backend::random_bytes(dest, size) == Error::Ok ? 1 : 0;
+}
 
 Error init(Context &ctx, const char *network_passphrase) {
     ctx = {};
@@ -33,69 +38,33 @@ Error init(Context &ctx, const char *network_passphrase) {
     if (err != Error::Ok)
         return err;
 
-    // Generate ECDH keypair (SECP192R1) using low-level ECP API
+    // Generate ECDH keypair (SECP192R1) with micro-ecc
     auto *ecp = static_cast<EcpCtx *>(std::calloc(1, sizeof(EcpCtx)));
     if (!ecp)
         return Error::Ecdh;
 
-    mbedtls_ecp_group_init(&ecp->grp);
-    mbedtls_mpi_init(&ecp->d);
-    mbedtls_ecp_point_init(&ecp->Q);
-
-    mbedtls_entropy_context entropy;
-    mbedtls_ctr_drbg_context ctr_drbg;
-    mbedtls_entropy_init(&entropy);
-    mbedtls_ctr_drbg_init(&ctr_drbg);
-
-    const char *pers = "csrmesh_masp";
-    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                    reinterpret_cast<const uint8_t *>(pers), std::strlen(pers));
-    if (ret != 0)
-        goto ecdh_err;
-
-    ret = mbedtls_ecp_group_load(&ecp->grp, MBEDTLS_ECP_DP_SECP192R1);
-    if (ret != 0)
-        goto ecdh_err;
-
-    ret = mbedtls_ecp_gen_keypair(&ecp->grp, &ecp->d, &ecp->Q, mbedtls_ctr_drbg_random, &ctr_drbg);
-    if (ret != 0)
-        goto ecdh_err;
+    uECC_set_rng(uecc_rng);
+    const struct uECC_Curve_t *curve = uECC_secp192r1();
+    if (!uECC_make_key(ecp->pub, ecp->priv, curve)) {
+        std::free(ecp);
+        return Error::Ecdh;
+    }
 
     {
-        // Extract public key X, Y as big-endian, then reverse for LE transmission
-        uint8_t x_be[ECDH_COORD_LEN], y_be[ECDH_COORD_LEN];
-        ret = mbedtls_mpi_write_binary(&ecp->Q.MBEDTLS_PRIVATE(X), x_be, ECDH_COORD_LEN);
-        if (ret != 0)
-            goto ecdh_err;
-        ret = mbedtls_mpi_write_binary(&ecp->Q.MBEDTLS_PRIVATE(Y), y_be, ECDH_COORD_LEN);
-        if (ret != 0)
-            goto ecdh_err;
-
-        std::memcpy(ctx.pub_x_le, x_be, ECDH_COORD_LEN);
+        // Public key is X||Y big-endian; reverse each coordinate for LE transmission
+        std::memcpy(ctx.pub_x_le, ecp->pub, ECDH_COORD_LEN);
         crypto::reverse_bytes(ctx.pub_x_le, ECDH_COORD_LEN);
-        std::memcpy(ctx.pub_y_le, y_be, ECDH_COORD_LEN);
+        std::memcpy(ctx.pub_y_le, ecp->pub + ECDH_COORD_LEN, ECDH_COORD_LEN);
         crypto::reverse_bytes(ctx.pub_y_le, ECDH_COORD_LEN);
     }
 
-    // Generate random nonce
-    ret = mbedtls_ctr_drbg_random(&ctr_drbg, ctx.local_random, 8);
-    if (ret != 0)
-        goto ecdh_err;
-
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
+    if (crypto::backend::random_bytes(ctx.local_random, 8) != Error::Ok) {
+        std::free(ecp);
+        return Error::Ecdh;
+    }
 
     ctx.ecdh_ctx = ecp;
     return Error::Ok;
-
-ecdh_err:
-    mbedtls_ecp_point_free(&ecp->Q);
-    mbedtls_mpi_free(&ecp->d);
-    mbedtls_ecp_group_free(&ecp->grp);
-    std::free(ecp);
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
-    return Error::Ecdh;
 }
 
 void set_target(Context &ctx, uint32_t uuid_hash31) {
@@ -108,11 +77,7 @@ void set_target(Context &ctx, uint32_t uuid_hash31) {
 
 void cleanup(Context &ctx) {
     if (ctx.ecdh_ctx) {
-        auto *ecp = static_cast<EcpCtx *>(ctx.ecdh_ctx);
-        mbedtls_ecp_point_free(&ecp->Q);
-        mbedtls_mpi_free(&ecp->d);
-        mbedtls_ecp_group_free(&ecp->grp);
-        std::free(ecp);
+        std::free(ctx.ecdh_ctx);
         ctx.ecdh_ctx = nullptr;
     }
 }
@@ -235,70 +200,20 @@ Error compute_shared_secret(Context &ctx) {
     if (!ecp)
         return Error::Ecdh;
 
-    // Device pubkey is stored as LE; reverse to get BE for mbedtls
-    uint8_t x_be[ECDH_COORD_LEN], y_be[ECDH_COORD_LEN];
-    std::memcpy(x_be, ctx.device_pub_x, ECDH_COORD_LEN);
-    crypto::reverse_bytes(x_be, ECDH_COORD_LEN);
-    std::memcpy(y_be, ctx.device_pub_y, ECDH_COORD_LEN);
-    crypto::reverse_bytes(y_be, ECDH_COORD_LEN);
+    // Device pubkey is stored as LE; reverse each coordinate to BE for micro-ecc
+    uint8_t peer_pub[2 * ECDH_COORD_LEN];
+    std::memcpy(peer_pub, ctx.device_pub_x, ECDH_COORD_LEN);
+    crypto::reverse_bytes(peer_pub, ECDH_COORD_LEN);
+    std::memcpy(peer_pub + ECDH_COORD_LEN, ctx.device_pub_y, ECDH_COORD_LEN);
+    crypto::reverse_bytes(peer_pub + ECDH_COORD_LEN, ECDH_COORD_LEN);
 
-    // Load peer public key point
-    mbedtls_ecp_point Qp;
-    mbedtls_ecp_point_init(&Qp);
-
-    int ret = mbedtls_mpi_read_binary(&Qp.MBEDTLS_PRIVATE(X), x_be, ECDH_COORD_LEN);
-    if (ret != 0)
-        goto err;
-    ret = mbedtls_mpi_read_binary(&Qp.MBEDTLS_PRIVATE(Y), y_be, ECDH_COORD_LEN);
-    if (ret != 0)
-        goto err;
-    ret = mbedtls_mpi_lset(&Qp.MBEDTLS_PRIVATE(Z), 1);
-    if (ret != 0)
-        goto err;
-
-    {
-        // Compute shared secret: ECDH = d * Qp, take X coordinate
-        mbedtls_entropy_context entropy;
-        mbedtls_ctr_drbg_context ctr_drbg;
-        mbedtls_entropy_init(&entropy);
-        mbedtls_ctr_drbg_init(&ctr_drbg);
-
-        ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                    reinterpret_cast<const uint8_t *>("ecdh"), 4);
-        if (ret != 0) {
-            mbedtls_ctr_drbg_free(&ctr_drbg);
-            mbedtls_entropy_free(&entropy);
-            goto err;
-        }
-
-        mbedtls_ecp_point result;
-        mbedtls_ecp_point_init(&result);
-
-        ret = mbedtls_ecp_mul(&ecp->grp, &result, &ecp->d, &Qp, mbedtls_ctr_drbg_random, &ctr_drbg);
-        mbedtls_ctr_drbg_free(&ctr_drbg);
-        mbedtls_entropy_free(&entropy);
-
-        if (ret != 0) {
-            mbedtls_ecp_point_free(&result);
-            goto err;
-        }
-
-        // Write X coordinate as big-endian, then reverse
-        ret =
-            mbedtls_mpi_write_binary(&result.MBEDTLS_PRIVATE(X), ctx.shared_secret, ECDH_COORD_LEN);
-        mbedtls_ecp_point_free(&result);
-        if (ret != 0)
-            goto err;
-    }
-
-    mbedtls_ecp_point_free(&Qp);
+    uECC_set_rng(uecc_rng);
+    // micro-ecc returns the shared X coordinate big-endian; store LE as before
+    if (!uECC_shared_secret(peer_pub, ecp->priv, ctx.shared_secret, uECC_secp192r1()))
+        return Error::Ecdh;
     crypto::reverse_bytes(ctx.shared_secret, ECDH_COORD_LEN);
     ctx.has_shared_secret = true;
     return Error::Ok;
-
-err:
-    mbedtls_ecp_point_free(&Qp);
-    return Error::Ecdh;
 }
 
 // Build confirmation HMAC data

@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cstring>
 
-#include <mbedtls/md.h>
-#include <mbedtls/sha256.h>
+#include "crypto_backend.h"
 
 namespace csrmesh::crypto {
 
@@ -32,43 +31,21 @@ void reverse_bytes(uint8_t *data, size_t len) {
 
 Error derive_key(const char *passphrase, const char *salt, size_t salt_len,
                  uint8_t key_out[KEY_LEN]) {
-    mbedtls_sha256_context sha;
     uint8_t digest[32];
-
-    mbedtls_sha256_init(&sha);
-    if (mbedtls_sha256_starts(&sha, 0) != 0)
-        goto err;
-    if (passphrase && *passphrase) {
-        if (mbedtls_sha256_update(&sha, reinterpret_cast<const uint8_t *>(passphrase),
-                                  std::strlen(passphrase)) != 0)
-            goto err;
-    }
-    if (salt_len > 0) {
-        if (mbedtls_sha256_update(&sha, reinterpret_cast<const uint8_t *>(salt), salt_len) != 0)
-            goto err;
-    }
-    if (mbedtls_sha256_finish(&sha, digest) != 0)
-        goto err;
-    mbedtls_sha256_free(&sha);
-
+    ByteSpan pass{}, salt_span{};
+    if (passphrase && *passphrase)
+        pass = {reinterpret_cast<const uint8_t *>(passphrase), std::strlen(passphrase)};
+    if (salt_len > 0)
+        salt_span = {reinterpret_cast<const uint8_t *>(salt), salt_len};
+    if (backend::sha256(pass, salt_span, digest) != Error::Ok)
+        return Error::Crypto;
     reverse_bytes(digest, 32);
     std::memcpy(key_out, digest, KEY_LEN);
     return Error::Ok;
-
-err:
-    mbedtls_sha256_free(&sha);
-    return Error::Crypto;
 }
 
 Error hmac_sha256(ByteSpan data, ByteSpan key, uint8_t out[HMAC_LEN]) {
-    const auto *md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-    if (!md_info)
-        return Error::Crypto;
-
-    if (mbedtls_md_hmac(md_info, key.data(), key.size(), data.data(), data.size(), out) != 0)
-        return Error::Crypto;
-
-    return Error::Ok;
+    return backend::hmac_sha256(data, key, out);
 }
 
 Error hmac_sha256_truncated(ByteSpan data, ByteSpan key, uint8_t *out, size_t out_len) {
@@ -171,7 +148,7 @@ Error verify_packet_mac(ByteSpan packet, const uint8_t *key, size_t *payload_len
 uint32_t uuid_to_hash31(ByteSpan uuid_bytes) {
     // Does NOT reverse UUID before hashing
     uint8_t digest[32];
-    mbedtls_sha256(uuid_bytes.data(), uuid_bytes.size(), digest, 0);
+    backend::sha256(uuid_bytes, {}, digest);
 
     uint8_t last_4[4];
     std::memcpy(last_4, digest + 28, 4);
@@ -188,7 +165,7 @@ uint64_t uuid_to_hash64(ByteSpan uuid_bytes) {
     reverse_bytes(reversed, len);
 
     uint8_t digest[32];
-    mbedtls_sha256(reversed, len, digest, 0);
+    backend::sha256({reversed, len}, {}, digest);
 
     uint64_t result = 0;
     for (size_t i = 0; i < 8; i++)
