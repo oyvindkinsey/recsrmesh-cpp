@@ -7,11 +7,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04  # Mbed TLS 3.6; Mbed TLS 4 support tracked upstream
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y clang-format libmbedtls-dev
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+      - name: Build Mbed TLS 3.6 for CI
+        run: |
+          git clone --depth 1 --branch v3.6.2 https://github.com/Mbed-TLS/mbedtls.git /tmp/mbedtls
+          cmake -S /tmp/mbedtls -B /tmp/mbedtls/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/mbedtls/build -j
+          sudo cmake --install /tmp/mbedtls/build
       - name: Check formatting
         run: make format-check
       - name: Build
