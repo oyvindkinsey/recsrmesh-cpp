@@ -20,26 +20,23 @@ Error derive_key(const char *passphrase, const char *salt, size_t salt_len,
 Error hmac_sha256(ByteSpan data, ByteSpan key, uint8_t out[HMAC_LEN]);
 
 // HMAC-SHA256 truncated: last N bytes of HMAC, reversed
-Error hmac_sha256_truncated(ByteSpan data, ByteSpan key,
-                            uint8_t *out, size_t out_len);
+Error hmac_sha256_truncated(ByteSpan data, ByteSpan key, uint8_t *out, size_t out_len);
 
 // XOR two equal-length buffers
 void xor_bytes(const uint8_t *a, const uint8_t *b, uint8_t *out, size_t len);
 
 // XOR encryption using HMAC-derived keystream (for MASP shared-secret fields)
-Error xor_encrypt(ByteSpan data, ByteSpan shared_secret,
-                  const char *label, uint8_t *out);
+Error xor_encrypt(ByteSpan data, ByteSpan shared_secret, const char *label, uint8_t *out);
 
 // XOR MASP packet with fixed mask. Uses min(i, 24) NOT i%25.
 void xor_masp_packet(const uint8_t *in, uint8_t *out, size_t len);
 
 // Add 8-byte HMAC + TTL byte to packet. out must have room for in_len+9.
-Error add_packet_mac(ByteSpan payload, const uint8_t *key,
-                     uint8_t ttl, uint8_t *out, size_t *out_len);
+Error add_packet_mac(ByteSpan payload, const uint8_t *key, uint8_t ttl, uint8_t *out,
+                     size_t *out_len);
 
 // Verify and strip MAC. Returns payload length via payload_len_out.
-Error verify_packet_mac(ByteSpan packet, const uint8_t *key,
-                        size_t *payload_len_out, bool *valid);
+Error verify_packet_mac(ByteSpan packet, const uint8_t *key, size_t *payload_len_out, bool *valid);
 
 // SHA256(uuid_bytes) -> mask MSB of last 4 bytes -> 31-bit hash
 uint32_t uuid_to_hash31(ByteSpan uuid_bytes);

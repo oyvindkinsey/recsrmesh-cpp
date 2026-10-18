@@ -15,8 +15,7 @@ struct Decrypted {
 Error generate_key(ByteSpan input, uint8_t key_out[KEY_LEN]);
 
 // Build encrypted MCP packet with HMAC. Returns total packet length.
-size_t make_packet(const uint8_t *key, uint32_t seq, ByteSpan data,
-                   uint8_t *out, size_t out_cap);
+size_t make_packet(const uint8_t *key, uint32_t seq, ByteSpan data, uint8_t *out, size_t out_cap);
 
 // Decrypt MCP packet and verify HMAC.
 Error decrypt_packet(const uint8_t *key, ByteSpan data, Decrypted &result);

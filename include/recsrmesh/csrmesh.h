@@ -12,13 +12,12 @@
 namespace csrmesh {
 
 // Callback for decrypted MCP messages
-using RxCallback = std::function<void(uint16_t mcp_source, uint16_t crypto_source,
-                                      uint8_t opcode, const uint8_t *payload,
-                                      size_t payload_len)>;
+using RxCallback = std::function<void(uint16_t mcp_source, uint16_t crypto_source, uint8_t opcode,
+                                      const uint8_t *payload, size_t payload_len)>;
 
 // Callback for discovered unassociated devices
-using DiscoveryCallback = std::function<void(const uint8_t *uuid, size_t uuid_len,
-                                             uint32_t uuid_hash)>;
+using DiscoveryCallback =
+    std::function<void(const uint8_t *uuid, size_t uuid_len, uint32_t uuid_hash)>;
 
 struct MeshContext {
     mtl::Context mtl;
@@ -41,21 +40,21 @@ Error init(MeshContext &ctx, mtl::BleWriteFn ble_write, const char *passphrase);
 
 void set_rx_callback(MeshContext &ctx, RxCallback cb);
 
-void feed_notify(MeshContext &ctx, Characteristic ch,
-                 const uint8_t *data, size_t len, uint32_t now_ms);
+void feed_notify(MeshContext &ctx, Characteristic ch, const uint8_t *data, size_t len,
+                 uint32_t now_ms);
 
 void poll(MeshContext &ctx, uint32_t now_ms);
 
-Error send(MeshContext &ctx, uint16_t dest_id, uint8_t opcode,
-           const uint8_t *payload, size_t payload_len);
+Error send(MeshContext &ctx, uint16_t dest_id, uint8_t opcode, const uint8_t *payload,
+           size_t payload_len);
 
 Error disassociate(MeshContext &ctx, uint16_t device_id);
 
 Error discover_start(MeshContext &ctx, DiscoveryCallback cb);
 void discover_stop(MeshContext &ctx);
 
-Error associate_start(MeshContext &ctx, protocol::Context *proto,
-                      uint32_t uuid_hash, uint16_t device_id);
+Error associate_start(MeshContext &ctx, protocol::Context *proto, uint32_t uuid_hash,
+                      uint16_t device_id);
 void associate_cancel(MeshContext &ctx);
 
 }  // namespace csrmesh

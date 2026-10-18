@@ -10,8 +10,7 @@ static void handle_discovery(MeshContext &ctx, const uint8_t *data, size_t len);
 static bool handle_masp(MeshContext &ctx, const uint8_t *data, size_t len);
 static void handle_mcp(MeshContext &ctx, const uint8_t *data, size_t len);
 
-Error init(MeshContext &ctx, mtl::BleWriteFn ble_write, const char *passphrase)
-{
+Error init(MeshContext &ctx, mtl::BleWriteFn ble_write, const char *passphrase) {
     ctx = {};
     ctx.ble_write = ble_write;
 
@@ -36,36 +35,29 @@ Error init(MeshContext &ctx, mtl::BleWriteFn ble_write, const char *passphrase)
         return err;
 
     // Capture ctx pointer in lambda for MTL callback
-    mtl::init(ctx.mtl, ble_write, [&ctx](const uint8_t *data, size_t len) {
-        on_mtl_packet(data, len, ctx);
-    });
+    mtl::init(ctx.mtl, ble_write,
+              [&ctx](const uint8_t *data, size_t len) { on_mtl_packet(data, len, ctx); });
 
     return Error::Ok;
 }
 
-void set_rx_callback(MeshContext &ctx, RxCallback cb)
-{
+void set_rx_callback(MeshContext &ctx, RxCallback cb) {
     ctx.rx_cb = std::move(cb);
 }
 
-void feed_notify(MeshContext &ctx, Characteristic ch,
-                 const uint8_t *data, size_t len, uint32_t now_ms)
-{
+void feed_notify(MeshContext &ctx, Characteristic ch, const uint8_t *data, size_t len,
+                 uint32_t now_ms) {
     mtl::feed(ctx.mtl, ch, data, len, now_ms);
 }
 
-void poll(MeshContext &ctx, uint32_t now_ms)
-{
+void poll(MeshContext &ctx, uint32_t now_ms) {
     mtl::poll(ctx.mtl, now_ms);
 }
 
-Error send(MeshContext &ctx, uint16_t dest_id, uint8_t opcode,
-           const uint8_t *payload, size_t payload_len)
-{
+Error send(MeshContext &ctx, uint16_t dest_id, uint8_t opcode, const uint8_t *payload,
+           size_t payload_len) {
     uint8_t mcp_buf[64];
-    size_t mcp_len = mcp::build(dest_id, opcode,
-                                 {payload, payload_len},
-                                 mcp_buf, sizeof(mcp_buf));
+    size_t mcp_len = mcp::build(dest_id, opcode, {payload, payload_len}, mcp_buf, sizeof(mcp_buf));
     if (mcp_len == 0)
         return Error::BufferTooSmall;
 
@@ -75,17 +67,15 @@ Error send(MeshContext &ctx, uint16_t dest_id, uint8_t opcode,
         return err;
 
     uint8_t enc_buf[80];
-    size_t enc_len = mcp_crypto::make_packet(ctx.mcp_key, seq,
-                                              {mcp_buf, mcp_len},
-                                              enc_buf, sizeof(enc_buf));
+    size_t enc_len =
+        mcp_crypto::make_packet(ctx.mcp_key, seq, {mcp_buf, mcp_len}, enc_buf, sizeof(enc_buf));
     if (enc_len == 0)
         return Error::Crypto;
 
     return mtl::send(ctx.mtl, enc_buf, enc_len, false);
 }
 
-Error disassociate(MeshContext &ctx, uint16_t device_id)
-{
+Error disassociate(MeshContext &ctx, uint16_t device_id) {
     uint8_t mcp_buf[16];
     size_t mcp_len = mcp::build_disassociate(device_id, mcp_buf, sizeof(mcp_buf));
     if (mcp_len == 0)
@@ -97,17 +87,15 @@ Error disassociate(MeshContext &ctx, uint16_t device_id)
         return err;
 
     uint8_t enc_buf[80];
-    size_t enc_len = mcp_crypto::make_packet(ctx.mcp_key, seq,
-                                              {mcp_buf, mcp_len},
-                                              enc_buf, sizeof(enc_buf));
+    size_t enc_len =
+        mcp_crypto::make_packet(ctx.mcp_key, seq, {mcp_buf, mcp_len}, enc_buf, sizeof(enc_buf));
     if (enc_len == 0)
         return Error::Crypto;
 
     return mtl::send(ctx.mtl, enc_buf, enc_len, false);
 }
 
-Error discover_start(MeshContext &ctx, DiscoveryCallback cb)
-{
+Error discover_start(MeshContext &ctx, DiscoveryCallback cb) {
     ctx.discovering = true;
     ctx.discovery_cb = std::move(cb);
 
@@ -122,24 +110,21 @@ Error discover_start(MeshContext &ctx, DiscoveryCallback cb)
 
     uint8_t packet[32];
     size_t packet_len;
-    auto err = crypto::add_packet_mac({announce, announce_len},
-                                       ctx.masp_key, 55,
-                                       packet, &packet_len);
+    auto err =
+        crypto::add_packet_mac({announce, announce_len}, ctx.masp_key, 55, packet, &packet_len);
     if (err != Error::Ok)
         return err;
 
     return mtl::send(ctx.mtl, packet, packet_len, false);
 }
 
-void discover_stop(MeshContext &ctx)
-{
+void discover_stop(MeshContext &ctx) {
     ctx.discovering = false;
     ctx.discovery_cb = nullptr;
 }
 
-Error associate_start(MeshContext &ctx, protocol::Context *proto,
-                      uint32_t /*uuid_hash*/, uint16_t /*device_id*/)
-{
+Error associate_start(MeshContext &ctx, protocol::Context *proto, uint32_t /*uuid_hash*/,
+                      uint16_t /*device_id*/) {
     if (ctx.proto)
         return Error::Busy;
 
@@ -150,8 +135,8 @@ Error associate_start(MeshContext &ctx, protocol::Context *proto,
 
     uint8_t packet[64];
     size_t packet_len;
-    auto err = crypto::add_packet_mac({request, req_len}, proto->assoc.masp_key, 55,
-                                       packet, &packet_len);
+    auto err =
+        crypto::add_packet_mac({request, req_len}, proto->assoc.masp_key, 55, packet, &packet_len);
     if (err != Error::Ok)
         return err;
 
@@ -163,8 +148,7 @@ Error associate_start(MeshContext &ctx, protocol::Context *proto,
     return Error::Ok;
 }
 
-void associate_cancel(MeshContext &ctx)
-{
+void associate_cancel(MeshContext &ctx) {
     if (ctx.proto) {
         protocol::cleanup(*ctx.proto);
         ctx.proto = nullptr;
@@ -173,8 +157,7 @@ void associate_cancel(MeshContext &ctx)
 
 // ---- Internal handlers ----
 
-static void on_mtl_packet(const uint8_t *data, size_t len, MeshContext &ctx)
-{
+static void on_mtl_packet(const uint8_t *data, size_t len, MeshContext &ctx) {
     if (ctx.discovering)
         handle_discovery(ctx, data, len);
 
@@ -186,8 +169,7 @@ static void on_mtl_packet(const uint8_t *data, size_t len, MeshContext &ctx)
     handle_mcp(ctx, data, len);
 }
 
-static void handle_discovery(MeshContext &ctx, const uint8_t *data, size_t len)
-{
+static void handle_discovery(MeshContext &ctx, const uint8_t *data, size_t len) {
     if (!ctx.discovery_cb)
         return;
 
@@ -202,8 +184,7 @@ static void handle_discovery(MeshContext &ctx, const uint8_t *data, size_t len)
         return;
     crypto::xor_masp_packet(data, message, payload_len);
 
-    if (payload_len < 17 ||
-        message[0] != static_cast<uint8_t>(masp::Opcode::UuidAnnounce))
+    if (payload_len < 17 || message[0] != static_cast<uint8_t>(masp::Opcode::UuidAnnounce))
         return;
 
     const uint8_t *uuid_bytes = message + 1;
@@ -212,8 +193,7 @@ static void handle_discovery(MeshContext &ctx, const uint8_t *data, size_t len)
     ctx.discovery_cb(uuid_bytes, 16, uuid_hash);
 }
 
-static bool handle_masp(MeshContext &ctx, const uint8_t *data, size_t len)
-{
+static bool handle_masp(MeshContext &ctx, const uint8_t *data, size_t len) {
     auto *proto = ctx.proto;
 
     size_t payload_len;
@@ -228,8 +208,8 @@ static bool handle_masp(MeshContext &ctx, const uint8_t *data, size_t len)
     crypto::xor_masp_packet(data, message, payload_len);
 
     uint8_t next_request[32];
-    size_t next_len = protocol::process(*proto, message, payload_len,
-                                         next_request, sizeof(next_request));
+    size_t next_len =
+        protocol::process(*proto, message, payload_len, next_request, sizeof(next_request));
 
     if (protocol::is_complete(*proto) || protocol::is_error(*proto)) {
         ctx.proto = nullptr;
@@ -239,9 +219,8 @@ static bool handle_masp(MeshContext &ctx, const uint8_t *data, size_t len)
     if (next_len > 0) {
         uint8_t packet[64];
         size_t packet_len;
-        auto err = crypto::add_packet_mac({next_request, next_len},
-                                           proto->assoc.masp_key, 55,
-                                           packet, &packet_len);
+        auto err = crypto::add_packet_mac({next_request, next_len}, proto->assoc.masp_key, 55,
+                                          packet, &packet_len);
         if (err == Error::Ok)
             mtl::send(ctx.mtl, packet, packet_len, false);
         return true;
@@ -250,8 +229,7 @@ static bool handle_masp(MeshContext &ctx, const uint8_t *data, size_t len)
     return false;
 }
 
-static void handle_mcp(MeshContext &ctx, const uint8_t *data, size_t len)
-{
+static void handle_mcp(MeshContext &ctx, const uint8_t *data, size_t len) {
     if (!ctx.rx_cb)
         return;
 
@@ -263,8 +241,7 @@ static void handle_mcp(MeshContext &ctx, const uint8_t *data, size_t len)
     if (!mcp::parse({result.decrypted, result.decrypted_len}, parsed))
         return;
 
-    ctx.rx_cb(parsed.source, result.source, parsed.opcode,
-              parsed.payload, parsed.payload_len);
+    ctx.rx_cb(parsed.source, result.source, parsed.opcode, parsed.payload, parsed.payload_len);
 }
 
 }  // namespace csrmesh

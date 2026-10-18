@@ -8,19 +8,19 @@ namespace csrmesh::masp {
 
 enum class Opcode : uint8_t {
     DeviceIdAnnounce = 0x00,
-    UuidAnnounce     = 0x01,
-    AssocRequest     = 0x02,
-    AssocResponse    = 0x03,
-    PubkeyRequest    = 0x04,
-    PubkeyResponse   = 0x05,
-    ConfirmRequest   = 0x06,
-    ConfirmResponse  = 0x07,
-    RandomRequest    = 0x08,
-    RandomResponse   = 0x09,
-    DeviceIdDist     = 0x0A,
-    DeviceIdAck      = 0x0B,
-    NetkeyDist       = 0x0C,
-    NetkeyAck        = 0x0D,
+    UuidAnnounce = 0x01,
+    AssocRequest = 0x02,
+    AssocResponse = 0x03,
+    PubkeyRequest = 0x04,
+    PubkeyResponse = 0x05,
+    ConfirmRequest = 0x06,
+    ConfirmResponse = 0x07,
+    RandomRequest = 0x08,
+    RandomResponse = 0x09,
+    DeviceIdDist = 0x0A,
+    DeviceIdAck = 0x0B,
+    NetkeyDist = 0x0C,
+    NetkeyAck = 0x0D,
 };
 
 struct Context {
@@ -90,8 +90,7 @@ size_t build_assoc_request(Context &ctx, uint8_t *out, size_t out_cap);
 size_t build_pubkey_packet(Context &ctx, uint8_t *out, size_t out_cap);
 size_t build_confirm_request(Context &ctx, uint8_t *out, size_t out_cap);
 size_t build_random_request(const Context &ctx, uint8_t *out, size_t out_cap);
-size_t build_device_id_packet(Context &ctx, uint16_t device_id,
-                              uint8_t *out, size_t out_cap);
+size_t build_device_id_packet(Context &ctx, uint16_t device_id, uint8_t *out, size_t out_cap);
 size_t build_netkey_packet(Context &ctx, uint8_t *out, size_t out_cap);
 
 // ---- Response parsers ----

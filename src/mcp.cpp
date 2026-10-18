@@ -4,9 +4,7 @@
 
 namespace csrmesh::mcp {
 
-size_t build(uint16_t dest_id, uint8_t opcode, ByteSpan payload,
-             uint8_t *out, size_t out_cap)
-{
+size_t build(uint16_t dest_id, uint8_t opcode, ByteSpan payload, uint8_t *out, size_t out_cap) {
     size_t total = MCP_HEADER_LEN + payload.size();
     if (total > out_cap)
         return 0;
@@ -20,8 +18,7 @@ size_t build(uint16_t dest_id, uint8_t opcode, ByteSpan payload,
     return total;
 }
 
-bool parse(ByteSpan data, Parsed &parsed)
-{
+bool parse(ByteSpan data, Parsed &parsed) {
     if (data.size() < MCP_HEADER_LEN)
         return false;
 
@@ -32,11 +29,10 @@ bool parse(ByteSpan data, Parsed &parsed)
     return true;
 }
 
-size_t build_disassociate(uint16_t device_id, uint8_t *out, size_t out_cap)
-{
+size_t build_disassociate(uint16_t device_id, uint8_t *out, size_t out_cap) {
     uint8_t zero_payload[10] = {};
-    return build(device_id, MCP_DISASSOCIATE_OPCODE,
-                 {zero_payload, sizeof(zero_payload)}, out, out_cap);
+    return build(device_id, MCP_DISASSOCIATE_OPCODE, {zero_payload, sizeof(zero_payload)}, out,
+                 out_cap);
 }
 
 }  // namespace csrmesh::mcp

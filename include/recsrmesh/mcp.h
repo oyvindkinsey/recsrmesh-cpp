@@ -12,8 +12,7 @@ struct Parsed {
 };
 
 // Build MCP packet: [dest_lo, dest_hi, opcode, payload...]. Returns total length.
-size_t build(uint16_t dest_id, uint8_t opcode, ByteSpan payload,
-             uint8_t *out, size_t out_cap);
+size_t build(uint16_t dest_id, uint8_t opcode, ByteSpan payload, uint8_t *out, size_t out_cap);
 
 // Parse decrypted MCP packet. Returns false if < 3 bytes.
 bool parse(ByteSpan data, Parsed &parsed);

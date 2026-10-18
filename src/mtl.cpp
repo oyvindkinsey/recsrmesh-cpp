@@ -5,15 +5,13 @@
 
 namespace csrmesh::mtl {
 
-void init(Context &ctx, BleWriteFn write_fn, RxCallback rx_cb)
-{
+void init(Context &ctx, BleWriteFn write_fn, RxCallback rx_cb) {
     ctx = {};
     ctx.ble_write = std::move(write_fn);
     ctx.rx_cb = std::move(rx_cb);
 }
 
-static void flush_low_buf(Context &ctx)
-{
+static void flush_low_buf(Context &ctx) {
     if (ctx.low_pending && ctx.rx_cb) {
         ctx.rx_cb(ctx.low_buf, ctx.low_buf_len);
     }
@@ -21,9 +19,7 @@ static void flush_low_buf(Context &ctx)
     ctx.low_buf_len = 0;
 }
 
-void feed(Context &ctx, Characteristic ch,
-          const uint8_t *data, size_t len, uint32_t now_ms)
-{
+void feed(Context &ctx, Characteristic ch, const uint8_t *data, size_t len, uint32_t now_ms) {
     if (ch == Characteristic::Low) {
         size_t copy_len = std::min(len, MTL_FRAG_SIZE);
         std::memcpy(ctx.low_buf, data, copy_len);
@@ -52,8 +48,7 @@ void feed(Context &ctx, Characteristic ch,
     }
 }
 
-void poll(Context &ctx, uint32_t now_ms)
-{
+void poll(Context &ctx, uint32_t now_ms) {
     if (!ctx.low_pending)
         return;
 
@@ -62,8 +57,7 @@ void poll(Context &ctx, uint32_t now_ms)
         flush_low_buf(ctx);
 }
 
-Error send(Context &ctx, const uint8_t *data, size_t len, bool write_with_response)
-{
+Error send(Context &ctx, const uint8_t *data, size_t len, bool write_with_response) {
     if (!ctx.ble_write)
         return Error::InvalidArg;
 
@@ -78,8 +72,7 @@ Error send(Context &ctx, const uint8_t *data, size_t len, bool write_with_respon
         return Error::BleWrite;
 
     size_t remaining = len - MTL_FRAG_SIZE;
-    ret = ctx.ble_write(Characteristic::High, data + MTL_FRAG_SIZE,
-                        remaining, write_with_response);
+    ret = ctx.ble_write(Characteristic::High, data + MTL_FRAG_SIZE, remaining, write_with_response);
     return ret == 0 ? Error::Ok : Error::BleWrite;
 }
 

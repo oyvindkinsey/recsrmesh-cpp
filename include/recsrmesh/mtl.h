@@ -29,8 +29,7 @@ struct Context {
 void init(Context &ctx, BleWriteFn write_fn, RxCallback rx_cb);
 
 // Feed a BLE notification (characteristic + data).
-void feed(Context &ctx, Characteristic ch,
-          const uint8_t *data, size_t len, uint32_t now_ms);
+void feed(Context &ctx, Characteristic ch, const uint8_t *data, size_t len, uint32_t now_ms);
 
 // Poll for fragment timeout.
 void poll(Context &ctx, uint32_t now_ms);
