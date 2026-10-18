@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-18
+
+### Fixed
+
+- Prefix micro-ecc symbols with `recsrmesh_` to avoid link collisions with ESP-IDF's BT tinycrypt micro-ecc.
+
 ## [1.1.1] - 2026-10-18
 
 ### Fixed

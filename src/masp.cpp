@@ -8,7 +8,7 @@
 #include "crypto_backend.h"
 
 extern "C" {
-#include "../external/micro-ecc/uECC.h"
+#include "uecc_prefixed.h"
 }
 
 namespace csrmesh::masp {

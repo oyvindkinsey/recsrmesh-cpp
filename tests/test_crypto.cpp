@@ -4,7 +4,7 @@
 #include "recsrmesh/mcp_crypto.h"
 
 extern "C" {
-#include "uECC.h"
+#include "uecc_prefixed.h"
 }
 
 #include <cassert>
