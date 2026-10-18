@@ -1,11 +1,20 @@
 name: CI
-on: {push: {branches: [main]}, pull_request:}
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y clang-format libmbedtls-dev
-      - run: make format-check
-      - run: make build BUILD_DIR=build
-      - run: ctest --test-dir build --output-on-failure
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang-format libmbedtls-dev
+      - name: Check formatting
+        run: make format-check
+      - name: Build
+        run: make build BUILD_DIR=build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
