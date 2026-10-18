@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-18
+
+### Fixed
+
+- Include micro-ecc via a relative path so converted IDF component builds find it without an extra include directory.
+
 ## [1.1.0] - 2026-10-18
 
 ### Added
