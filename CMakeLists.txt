@@ -9,6 +9,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Find mbedtls
 find_package(MbedTLS REQUIRED)
+find_package(Threads REQUIRED)
 
 # Library sources (no main, just library code)
 file(GLOB_RECURSE SOURCES "src/*.cpp")
