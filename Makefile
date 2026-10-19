@@ -9,7 +9,7 @@ help:
 	@echo "  make test          Build and run known-answer tests (ctest)"
 	@echo "  make clean         Remove $(BUILD_DIR)"
 
-CXX_FILES := $(shell git ls-files '*.cpp' '*.h')
+CXX_FILES := $(shell git ls-files '*.cpp' '*.h' | grep -v '^external/')
 
 format:
 	clang-format -i $(CXX_FILES)
